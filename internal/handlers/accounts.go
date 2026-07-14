@@ -9,6 +9,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
+	"errors"
+
 	"github.com/OmarHGK/paylite/internal/models"
 )
 
@@ -57,5 +59,32 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(account)
+}
+func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
+	idParam := r.PathValue("id")
+
+	objectID, err := bson.ObjectIDFromHex(idParam)
+	if err != nil {
+		http.Error(w, "invalid account id", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	var account models.Account
+	err = h.Collection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&account)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			http.Error(w, "account not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to fetch account", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(account)
 }

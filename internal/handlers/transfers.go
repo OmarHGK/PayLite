@@ -56,6 +56,11 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if req.AmountCents <= 0 {
+		http.Error(w, "amount_cents must be positive", http.StatusBadRequest)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
@@ -80,7 +85,7 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 	}
 	defer session.EndSession(ctx)
 
-	result, err := session.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+	result, err := session.WithTransaction(ctx, func(sessCtx context.Context) (interface{}, error) {
 		now := time.Now()
 
 		debitFilter := bson.M{
@@ -132,9 +137,21 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 
 	if err != nil {
 		if errors.Is(err, errInsufficientFunds) {
-			http.Error(w, "Insufficient funds", http.StatusBadRequest)
+			http.Error(w, "Insufficient funds", http.StatusUnprocessableEntity)
 			return
 		}
+
+		if mongo.IsDuplicateKeyError(err) {
+			var existing models.Transfer
+			ferr := h.TransfersCollection.FindOne(ctx, bson.M{"idempotency_key": req.IdempotencyKey}).Decode(&existing)
+			if ferr == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(existing)
+				return
+			}
+		}
+
 		http.Error(w, "Failed to create transfer", http.StatusInternalServerError)
 		return
 	}

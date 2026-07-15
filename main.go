@@ -13,11 +13,13 @@ func main() {
 	client := db.Connect("mongodb://localhost:27017")
 
 	accountHandler := handlers.NewAccountHandler(client)
+	transferHandler := handlers.NewTransferHandler(client)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler)
 	mux.HandleFunc("POST /accounts", accountHandler.CreateAccount)
 	mux.HandleFunc("GET /accounts/{id}", accountHandler.GetAccount)
+	mux.HandleFunc("POST /transfers", transferHandler.CreateTransfer)
 
 	log.Println("starting server on :8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {

@@ -18,21 +18,8 @@ import (
 	"github.com/OmarHGK/paylite/internal/handlers"
 )
 
-// TestConcurrentTransfers fires many concurrent POST /transfers requests at
-// a real running instance of the app (via httptest.NewServer, which starts
-// an actual HTTP server on a real port) between the same two accounts, then
-// checks that:
-//  1. every successful transfer actually moved money
-//  2. the combined total of both accounts is unchanged - i.e. no money was
-//     created or destroyed by the concurrent writes.
-//
-// This is the "week 1 stress test, but over HTTP" required by task 02, and
-// it's also what `go test ./... -race` needs an actual test to exercise.
-//
-// Requires: a real MongoDB replica set running and reachable at
-// mongodb://localhost:27017 (same as `go run main.go` needs).
 func TestConcurrentTransfers(t *testing.T) {
-	// --- Setup: wire up the exact same handlers main.go uses ---
+
 	client := db.Connect("mongodb://localhost:27017")
 	defer client.Disconnect(context.Background())
 
@@ -44,21 +31,15 @@ func TestConcurrentTransfers(t *testing.T) {
 	mux.HandleFunc("GET /accounts/{id}", accountHandler.GetAccount)
 	mux.HandleFunc("POST /transfers", transferHandler.CreateTransfer)
 
-	// httptest.NewServer starts a real HTTP server on a real (random) port.
-	// This is important: it means our test hits the app the same way a
-	// real client would, over the network, not by calling Go functions
-	// directly.
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	// --- Create two fresh accounts to run the stress test against ---
-	const startingBalance = int64(1_000_000) // $10,000.00 in cents
+	const startingBalance = int64(1_000_000)
 	aliceID := createAccount(t, server.URL, "StressAlice", startingBalance)
 	bobID := createAccount(t, server.URL, "StressBob", 0)
 
-	// --- Fire N concurrent transfers ---
 	const numTransfers = 50
-	const amountPerTransfer = int64(100) // $1.00 each
+	const amountPerTransfer = int64(100)
 
 	var wg sync.WaitGroup
 	var successCount int64
@@ -69,11 +50,6 @@ func TestConcurrentTransfers(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 
-			// Each request needs its OWN idempotency key. If they all
-			// shared one key, we'd just be testing idempotency again
-			// (49 of them would get rejected as duplicates) instead of
-			// testing that concurrent, *different* transfers are all
-			// applied safely.
 			body := map[string]any{
 				"from_account":    aliceID,
 				"to_account":      bobID,
@@ -99,8 +75,6 @@ func TestConcurrentTransfers(t *testing.T) {
 		}(i)
 	}
 
-	// Block here until every goroutine above has called wg.Done().
-	// Nothing after this line runs until all 50 requests have completed.
 	wg.Wait()
 
 	t.Logf("transfers: %d succeeded, %d failed", successCount, failureCount)
@@ -109,7 +83,6 @@ func TestConcurrentTransfers(t *testing.T) {
 		t.Fatalf("expected all %d transfers to succeed, but %d failed", numTransfers, failureCount)
 	}
 
-	// --- Verify money was actually moved, and nothing was lost/duplicated ---
 	aliceBalance := getBalance(t, server.URL, aliceID)
 	bobBalance := getBalance(t, server.URL, bobID)
 
@@ -124,9 +97,6 @@ func TestConcurrentTransfers(t *testing.T) {
 		t.Errorf("bob balance = %d, want %d", bobBalance, expectedBob)
 	}
 
-	// The real proof nothing was created or destroyed: the total across
-	// both accounts must equal the total before the test ran, no matter
-	// how the money moved between them.
 	totalBefore := startingBalance
 	totalAfter := aliceBalance + bobBalance
 	if totalAfter != totalBefore {
@@ -134,8 +104,6 @@ func TestConcurrentTransfers(t *testing.T) {
 	}
 }
 
-// createAccount is a small helper: POST /accounts and return the new
-// account's id as a string.
 func createAccount(t *testing.T, baseURL, ownerName string, balanceCents int64) string {
 	t.Helper()
 
@@ -166,8 +134,6 @@ func createAccount(t *testing.T, baseURL, ownerName string, balanceCents int64) 
 	return created.ID.Hex()
 }
 
-// getBalance is a small helper: GET /accounts/{id} and return its
-// balance_cents.
 func getBalance(t *testing.T, baseURL, accountID string) int64 {
 	t.Helper()
 
@@ -187,5 +153,4 @@ func getBalance(t *testing.T, baseURL, accountID string) int64 {
 	return account.BalanceCents
 }
 
-// keep time import used even if unused directly above in some edits
 var _ = time.Second

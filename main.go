@@ -19,7 +19,11 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	client := db.Connect("mongodb://localhost:27017")
+	mongoURI := os.Getenv("MONGO_URI")
+	if mongoURI == "" {
+		mongoURI = "mongodb://localhost:27017"
+	}
+	client := db.Connect(mongoURI)
 
 	accountHandler := handlers.NewAccountHandler(client)
 	transferHandler := handlers.NewTransferHandler(client)

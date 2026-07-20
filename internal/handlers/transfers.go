@@ -17,14 +17,16 @@ type TransferHandler struct {
 	Client              *mongo.Client
 	AccountsCollection  *mongo.Collection
 	TransfersCollection *mongo.Collection
+	LedgerCollection    *mongo.Collection
 }
 
 func NewTransferHandler(client *mongo.Client) *TransferHandler {
-	db := client.Database("paylite")
+	paylite := client.Database("paylite")
 	return &TransferHandler{
 		Client:              client,
-		AccountsCollection:  db.Collection("accounts"),
-		TransfersCollection: db.Collection("transfers"),
+		AccountsCollection:  paylite.Collection("accounts"),
+		TransfersCollection: paylite.Collection("transfers"),
+		LedgerCollection:    paylite.Collection("ledger_entries"),
 	}
 }
 
@@ -103,7 +105,6 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 		if debitResult.MatchedCount == 0 {
 			return nil, errInsufficientFunds
 		}
-
 		creditFilter := bson.M{"_id": toID}
 		creditUpdate := bson.M{
 			"$inc": bson.M{"balance_cents": req.AmountCents},
@@ -115,6 +116,15 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 		}
 		if creditResult.MatchedCount == 0 {
 			return nil, errors.New("to_account not found")
+		}
+
+		var fromAccount, toAccount models.Account
+
+		if err := h.AccountsCollection.FindOne(sessCtx, bson.M{"_id": fromID}).Decode(&fromAccount); err != nil {
+			return nil, err
+		}
+		if err := h.AccountsCollection.FindOne(sessCtx, bson.M{"_id": toID}).Decode(&toAccount); err != nil {
+			return nil, err
 		}
 
 		transfer := models.Transfer{
@@ -131,7 +141,34 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 			return nil, err
 		}
 
-		transfer.ID = insertResult.InsertedID.(bson.ObjectID)
+		transferID := insertResult.InsertedID.(bson.ObjectID)
+		transfer.ID = transferID
+
+		debitEntry := models.LedgerEntry{
+			TransferID:        transferID,
+			AccountID:         fromID,
+			Direction:         models.DirectionDebit,
+			AmountCents:       -req.AmountCents,
+			Currency:          fromAccount.Currency,
+			BalanceAfterCents: fromAccount.BalanceCents,
+			CreatedAt:         now,
+		}
+
+		creditEntry := models.LedgerEntry{
+			TransferID:        transferID,
+			AccountID:         toID,
+			Direction:         models.DirectionCredit,
+			AmountCents:       req.AmountCents,
+			Currency:          toAccount.Currency,
+			BalanceAfterCents: toAccount.BalanceCents,
+			CreatedAt:         now,
+		}
+
+		_, err = h.LedgerCollection.InsertMany(sessCtx, []interface{}{debitEntry, creditEntry})
+		if err != nil {
+			return nil, err
+		}
+
 		return transfer, nil
 	})
 

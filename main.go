@@ -25,14 +25,21 @@ func main() {
 	}
 	client := db.Connect(mongoURI)
 
+	db.InitCollections(client)
+
 	accountHandler := handlers.NewAccountHandler(client)
 	transferHandler := handlers.NewTransferHandler(client)
+	ledgerHandler := handlers.NewLedgerHandler(client) // NEW
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("GET /health", healthHandler)
 	mux.HandleFunc("POST /accounts", accountHandler.CreateAccount)
 	mux.HandleFunc("GET /accounts/{id}", accountHandler.GetAccount)
 	mux.HandleFunc("POST /transfers", transferHandler.CreateTransfer)
+
+	mux.HandleFunc("GET /accounts/{id}/statement", ledgerHandler.GetAccountStatement)
+	mux.HandleFunc("GET /transfers/{id}/entries", ledgerHandler.GetTransferEntries)
 
 	wrappedMux := middleware.RequestID(mux)
 
@@ -41,8 +48,6 @@ func main() {
 		Handler: wrappedMux,
 	}
 
-	// Run the server in its own goroutine, so main() can continue on to
-	// wait for a shutdown signal without blocking here.
 	go func() {
 		slog.Info("starting server", "port", 8080)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -50,15 +55,12 @@ func main() {
 		}
 	}()
 
-	// Block here until we receive SIGINT (Ctrl+C) or SIGTERM (what
-	// docker stop sends to a container's main process).
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
 	slog.Info("shutdown signal received, starting graceful shutdown")
 
-	// Give in-flight requests up to 10 seconds to finish before giving up.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

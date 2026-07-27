@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OmarHGK/paylite/internal/constants"
 	"github.com/OmarHGK/paylite/internal/db"
 	"github.com/OmarHGK/paylite/internal/handlers"
 	"github.com/OmarHGK/paylite/internal/middleware"
@@ -43,8 +44,15 @@ func main() {
 
 	wrappedMux := middleware.RequestID(mux)
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = constants.ServerPort
+	} else if port[0] != ':' {
+		port = ":" + port
+	}
+
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    port,
 		Handler: wrappedMux,
 	}
 

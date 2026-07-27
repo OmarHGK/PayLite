@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
+	"github.com/OmarHGK/paylite/internal/constants"
 	"github.com/OmarHGK/paylite/internal/models"
 )
 
@@ -21,12 +22,12 @@ type TransferHandler struct {
 }
 
 func NewTransferHandler(client *mongo.Client) *TransferHandler {
-	paylite := client.Database("paylite")
+	paylite := client.Database(constants.DatabaseName)
 	return &TransferHandler{
 		Client:              client,
-		AccountsCollection:  paylite.Collection("accounts"),
-		TransfersCollection: paylite.Collection("transfers"),
-		LedgerCollection:    paylite.Collection("ledger_entries"),
+		AccountsCollection:  paylite.Collection(constants.CollectionNameAccounts),
+		TransfersCollection: paylite.Collection(constants.CollectionNameTransfers),
+		LedgerCollection:    paylite.Collection(constants.CollectionNameLedger),
 	}
 }
 
@@ -63,7 +64,7 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), constants.LongContextTimeout)
 	defer cancel()
 
 	var existing models.Transfer
@@ -131,7 +132,7 @@ func (h *TransferHandler) CreateTransfer(w http.ResponseWriter, r *http.Request)
 			FromAccountID:  fromID,
 			ToAccountID:    toID,
 			AmountCents:    req.AmountCents,
-			Status:         "completed",
+			Status:         constants.TransferStatusCompleted,
 			IdempotencyKey: req.IdempotencyKey,
 			CreatedAt:      now,
 		}

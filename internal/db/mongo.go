@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
+	"github.com/OmarHGK/paylite/internal/constants"
 )
 
 func Connect(uri string) *mongo.Client {
@@ -18,7 +19,7 @@ func Connect(uri string) *mongo.Client {
 		panic(err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.LongContextTimeout)
 	defer cancel()
 
 	if err := client.Ping(ctx, nil); err != nil {
@@ -31,10 +32,10 @@ func Connect(uri string) *mongo.Client {
 }
 
 func InitCollections(client *mongo.Client) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DatabaseContextTimeout)
 	defer cancel()
 
-	paylite := client.Database("paylite")
+	paylite := client.Database(constants.DatabaseName)
 
 	createLedgerCollection(ctx, paylite)
 	createLedgerIndexes(ctx, paylite)
@@ -95,7 +96,7 @@ func createLedgerCollection(ctx context.Context, db *mongo.Database) {
 		SetValidationLevel("strict").
 		SetValidationAction("error")
 
-	err := db.CreateCollection(ctx, "ledger_entries", collectionOpts)
+	err := db.CreateCollection(ctx, constants.CollectionNameLedger, collectionOpts)
 	if err != nil {
 
 		if !isNamespaceExistsError(err) {
@@ -110,14 +111,14 @@ func createLedgerCollection(ctx context.Context, db *mongo.Database) {
 }
 
 func createLedgerIndexes(ctx context.Context, db *mongo.Database) {
-	ledger := db.Collection("ledger_entries")
+	ledger := db.Collection(constants.CollectionNameLedger)
 
 	indexes := []mongo.IndexModel{
 		{
 
 			Keys: bson.D{
-				{Key: "transfer_id", Value: 1},
-				{Key: "account_id", Value: 1},
+				{Key: constants.BSONFieldTransferID, Value: 1},
+				{Key: constants.BSONFieldAccountID, Value: 1},
 			},
 			Options: options.Index().
 				SetUnique(true).
@@ -126,8 +127,8 @@ func createLedgerIndexes(ctx context.Context, db *mongo.Database) {
 		{
 
 			Keys: bson.D{
-				{Key: "account_id", Value: 1},
-				{Key: "created_at", Value: 1},
+				{Key: constants.BSONFieldAccountID, Value: 1},
+				{Key: constants.BSONFieldCreatedAt, Value: 1},
 			},
 			Options: options.Index().
 				SetName("account_statement"),

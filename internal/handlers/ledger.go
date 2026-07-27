@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
+	"github.com/OmarHGK/paylite/internal/constants"
 	"github.com/OmarHGK/paylite/internal/models"
 )
 
@@ -19,7 +19,7 @@ type LedgerHandler struct {
 
 func NewLedgerHandler(client *mongo.Client) *LedgerHandler {
 	return &LedgerHandler{
-		LedgerCollection: client.Database("paylite").Collection("ledger_entries"),
+		LedgerCollection: client.Database(constants.DatabaseName).Collection(constants.CollectionNameLedger),
 	}
 }
 
@@ -32,7 +32,7 @@ func (h *LedgerHandler) GetAccountStatement(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), constants.LongContextTimeout)
 	defer cancel()
 
 	filter := bson.M{"account_id": accountID}
@@ -67,7 +67,7 @@ func (h *LedgerHandler) GetTransferEntries(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), constants.LongContextTimeout)
 	defer cancel()
 
 	filter := bson.M{"transfer_id": transferID}

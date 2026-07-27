@@ -11,6 +11,7 @@ import (
 
 	"errors"
 
+	"github.com/OmarHGK/paylite/internal/constants"
 	"github.com/OmarHGK/paylite/internal/models"
 )
 
@@ -19,7 +20,7 @@ type AccountHandler struct {
 }
 
 func NewAccountHandler(client *mongo.Client) *AccountHandler {
-	collection := client.Database("paylite").Collection("accounts")
+	collection := client.Database(constants.DatabaseName).Collection(constants.CollectionNameAccounts)
 	return &AccountHandler{
 		Collection: collection,
 	}
@@ -47,7 +48,7 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:    now,
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
 	result, err := h.Collection.InsertOne(ctx, account)
@@ -70,7 +71,7 @@ func (h *AccountHandler) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
 	var account models.Account

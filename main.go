@@ -3,87 +3,62 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	"github.com/OmarHGK/paylite/internal/constants"
+	"github.com/OmarHGK/paylite/internal/config"
 	"github.com/OmarHGK/paylite/internal/db"
 	"github.com/OmarHGK/paylite/internal/handlers"
-	"github.com/OmarHGK/paylite/internal/middleware"
+	"github.com/stripe/stripe-go/v79"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
-	mongoURI := os.Getenv("MONGO_URI")
-	if mongoURI == "" {
-		mongoURI = "mongodb://localhost:27017"
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
-	client := db.Connect(mongoURI)
 
-	db.InitCollections(client)
+	stripe.Key = cfg.StripeSecretKey
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
+	client := db.Connect(cfg.MongoURI)
 
 	accountHandler := handlers.NewAccountHandler(client)
 	transferHandler := handlers.NewTransferHandler(client)
-	ledgerHandler := handlers.NewLedgerHandler(client) // NEW
+	paymentHandler := handlers.NewPaymentHandler(client, logger)
 
 	mux := http.NewServeMux()
-
 	mux.HandleFunc("GET /health", healthHandler)
 	mux.HandleFunc("POST /accounts", accountHandler.CreateAccount)
 	mux.HandleFunc("GET /accounts/{id}", accountHandler.GetAccount)
 	mux.HandleFunc("POST /transfers", transferHandler.CreateTransfer)
 
-	mux.HandleFunc("GET /accounts/{id}/statement", ledgerHandler.GetAccountStatement)
-	mux.HandleFunc("GET /transfers/{id}/entries", ledgerHandler.GetTransferEntries)
+	mux.HandleFunc("POST /payments", paymentHandler.CreatePayment)
+	mux.HandleFunc("POST /payments/confirm", paymentHandler.ConfirmPayment)
 
-	wrappedMux := middleware.RequestID(mux)
+	handler := requestIDMiddleware(mux)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = constants.ServerPort
-	} else if port[0] != ':' {
-		port = ":" + port
+	log.Printf("starting server on :%s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
+		log.Fatal(err)
 	}
-
-	server := &http.Server{
-		Addr:    port,
-		Handler: wrappedMux,
-	}
-
-	go func() {
-		slog.Info("starting server", "port", 8080)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server failed", "error", err)
-		}
-	}()
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	<-stop
-
-	slog.Info("shutdown signal received, starting graceful shutdown")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("graceful shutdown failed", "error", err)
-	}
-
-	if err := client.Disconnect(shutdownCtx); err != nil {
-		slog.Error("failed to disconnect from mongo", "error", err)
-	}
-
-	slog.Info("shutdown complete")
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func requestIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID := r.Header.Get("X-Request-ID")
+		if requestID == "" {
+			requestID = "no-id"
+		}
+		ctx := context.WithValue(r.Context(), "request_id", requestID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

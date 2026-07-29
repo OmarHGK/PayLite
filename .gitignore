@@ -1,0 +1,33 @@
+# --- Go ---
+# Compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/tmp/
+
+# Go build/test artifacts
+*.test
+*.out
+
+# Go workspace files (only if you use them; harmless otherwise)
+go.work
+go.work.sum
+
+# --- Environment / secrets ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- Editor / OS junk ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+# Local override files people sometimes use for personal tweaks
+docker-compose.override.yml

@@ -1,0 +1,39 @@
+services:
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate().ok }"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mongo-init-schema:
+    image: mongo:7
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - ./db/init-db.js:/init-db.js:ro
+    command: ["mongosh", "mongodb://mongo:27017/paylite", "/init-db.js"]
+    restart: "no"
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      MONGO_URI: "mongodb://mongo:27017/?replicaSet=rs0"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-init-schema:
+        condition: service_completed_successfully
+
+volumes:
+  mongo-data:

@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # PayLite
 
 A backend payment and transfer service built in Go, demonstrating double-entry bookkeeping, atomic transactions, and Stripe payment integration.
@@ -327,6 +328,8 @@ Each branch corresponds to one week of development:
 | `week3/01-ledger-implementation` | Double-entry ledger with atomic writes and integration tests |
 | `week4/01-Stripe-Integration` | Stripe sandbox payment creation and server-side confirmation |
 =======
+=======
+>>>>>>> df0ac3420447ee516647febebc9116964d3aa784
 \# PayLite
 
 
@@ -449,4 +452,7 @@ Both collections use `validationLevel: "strict"` and
 
 is rejected outright rather than merely logged.
 
+<<<<<<< HEAD
 >>>>>>> main
+=======
+>>>>>>> df0ac3420447ee516647febebc9116964d3aa784

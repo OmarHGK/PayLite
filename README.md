@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 # PayLite
 
 A backend payment and transfer service built in Go, demonstrating double-entry bookkeeping, atomic transactions, and Stripe payment integration.

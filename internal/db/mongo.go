@@ -2,8 +2,13 @@ package db
 
 import (
 	"context"
+<<<<<<< HEAD
 	"errors"
 	"log/slog"
+=======
+	"log"
+	"time"
+>>>>>>> main
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -15,19 +20,17 @@ import (
 func Connect(uri string) *mongo.Client {
 	client, err := mongo.Connect(options.Client().ApplyURI(uri))
 	if err != nil {
-		slog.Error("failed to connect to mongo", "error", err)
-		panic(err)
+		log.Fatalf("failed to connect to mongo: %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.LongContextTimeout)
 	defer cancel()
 
 	if err := client.Ping(ctx, nil); err != nil {
-		slog.Error("failed to ping mongo", "error", err)
-		panic(err)
+		log.Fatalf("failed to ping mongo: %v", err)
 	}
 
-	slog.Info("connected to mongodb")
+	log.Println("connected to mongodb")
 	return client
 }
 

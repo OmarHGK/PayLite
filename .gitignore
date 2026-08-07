@@ -7,6 +7,7 @@
 *.dylib
 /bin/
 /tmp/
+paylite
 
 # Go build/test artifacts
 *.test
@@ -29,5 +30,4 @@ go.work.sum
 Thumbs.db
 
 # --- Docker ---
-# Local override files people sometimes use for personal tweaks
 docker-compose.override.yml

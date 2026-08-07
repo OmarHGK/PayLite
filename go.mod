@@ -2,7 +2,11 @@ module github.com/OmarHGK/paylite
 
 go 1.26.4
 
-require go.mongodb.org/mongo-driver/v2 v2.8.0
+require (
+	github.com/google/uuid v1.6.0
+	github.com/stripe/stripe-go/v79 v79.12.0
+	go.mongodb.org/mongo-driver/v2 v2.8.0
+)
 
 require (
 	github.com/klauspost/compress v1.17.6 // indirect

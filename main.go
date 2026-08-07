@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/OmarHGK/paylite/internal/constants"
 	"github.com/OmarHGK/paylite/internal/db"
 	"github.com/OmarHGK/paylite/internal/handlers"
 )
@@ -12,10 +13,14 @@ import (
 func main() {
 	client := db.Connect("mongodb://localhost:27017")
 
+	db.InitCollections(client)
+
 	accountHandler := handlers.NewAccountHandler(client)
 	transferHandler := handlers.NewTransferHandler(client)
+	ledgerHandler := handlers.NewLedgerHandler(client) // NEW
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("GET /health", healthHandler)
 	mux.HandleFunc("POST /accounts", accountHandler.CreateAccount)
 	mux.HandleFunc("GET /accounts/{id}", accountHandler.GetAccount)

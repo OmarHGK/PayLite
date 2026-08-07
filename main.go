@@ -1,47 +1,30 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
-<<<<<<< HEAD
-<<<<<<< HEAD
 	"log/slog"
 	"net/http"
 	"os"
-=======
-	"net/http"
->>>>>>> main
-=======
-	"net/http"
->>>>>>> df0ac3420447ee516647febebc9116964d3aa784
 
 	"github.com/OmarHGK/paylite/internal/config"
 	"github.com/OmarHGK/paylite/internal/db"
 	"github.com/OmarHGK/paylite/internal/handlers"
-<<<<<<< HEAD
-<<<<<<< HEAD
 	"github.com/stripe/stripe-go/v79"
-=======
->>>>>>> df0ac3420447ee516647febebc9116964d3aa784
 )
 
 func main() {
-	client := db.Connect("mongodb://localhost:27017")
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	stripe.Key = cfg.StripeSecretKey
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-
 	client := db.Connect(cfg.MongoURI)
-<<<<<<< HEAD
-=======
-)
-
-func main() {
-	client := db.Connect("mongodb://localhost:27017")
->>>>>>> main
-=======
->>>>>>> df0ac3420447ee516647febebc9116964d3aa784
+	db.InitCollections(client)
 
 	accountHandler := handlers.NewAccountHandler(client)
 	transferHandler := handlers.NewTransferHandler(client)
@@ -52,9 +35,6 @@ func main() {
 	mux.HandleFunc("POST /accounts", accountHandler.CreateAccount)
 	mux.HandleFunc("GET /accounts/{id}", accountHandler.GetAccount)
 	mux.HandleFunc("POST /transfers", transferHandler.CreateTransfer)
-
-<<<<<<< HEAD
-<<<<<<< HEAD
 	mux.HandleFunc("POST /payments", paymentHandler.CreatePayment)
 	mux.HandleFunc("POST /payments/confirm", paymentHandler.ConfirmPayment)
 
@@ -62,14 +42,6 @@ func main() {
 
 	log.Printf("starting server on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
-=======
-	log.Println("starting server on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
->>>>>>> main
-=======
-	log.Println("starting server on :8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
->>>>>>> df0ac3420447ee516647febebc9116964d3aa784
 		log.Fatal(err)
 	}
 }

@@ -2,18 +2,9 @@ package db
 
 import (
 	"context"
-<<<<<<< HEAD
-<<<<<<< HEAD
 	"errors"
 	"log/slog"
-=======
 	"log"
-	"time"
->>>>>>> main
-=======
-	"log"
-	"time"
->>>>>>> df0ac3420447ee516647febebc9116964d3aa784
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"

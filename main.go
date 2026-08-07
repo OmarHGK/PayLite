@@ -1,30 +1,17 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"log/slog"
+	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/OmarHGK/paylite/internal/constants"
 	"github.com/OmarHGK/paylite/internal/db"
 	"github.com/OmarHGK/paylite/internal/handlers"
-	"github.com/OmarHGK/paylite/internal/middleware"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
-	mongoURI := os.Getenv("MONGO_URI")
-	if mongoURI == "" {
-		mongoURI = "mongodb://localhost:27017"
-	}
-	client := db.Connect(mongoURI)
+	client := db.Connect("mongodb://localhost:27017")
 
 	db.InitCollections(client)
 
@@ -39,48 +26,10 @@ func main() {
 	mux.HandleFunc("GET /accounts/{id}", accountHandler.GetAccount)
 	mux.HandleFunc("POST /transfers", transferHandler.CreateTransfer)
 
-	mux.HandleFunc("GET /accounts/{id}/statement", ledgerHandler.GetAccountStatement)
-	mux.HandleFunc("GET /transfers/{id}/entries", ledgerHandler.GetTransferEntries)
-
-	wrappedMux := middleware.RequestID(mux)
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = constants.ServerPort
-	} else if port[0] != ':' {
-		port = ":" + port
+	log.Println("starting server on :8080")
+	if err := http.ListenAndServe(":8080", mux); err != nil {
+		log.Fatal(err)
 	}
-
-	server := &http.Server{
-		Addr:    port,
-		Handler: wrappedMux,
-	}
-
-	go func() {
-		slog.Info("starting server", "port", 8080)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server failed", "error", err)
-		}
-	}()
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	<-stop
-
-	slog.Info("shutdown signal received, starting graceful shutdown")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("graceful shutdown failed", "error", err)
-	}
-
-	if err := client.Disconnect(shutdownCtx); err != nil {
-		slog.Error("failed to disconnect from mongo", "error", err)
-	}
-
-	slog.Info("shutdown complete")
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
